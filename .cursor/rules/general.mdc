@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+Lage et Lvgl Esp32 basert smart hjem Dashboard. Jeg har homey som starthjem sentral. Den har støtte for MQTT. Dashboard skal bruke mqtt og la meg styre diverse funksjoner i smarthkem med mqtt. Skjermen jeg har er denne:
+
+https://www.waveshare.com/esp32-s3-touch-lcd-7.htm?___SID=U
+
+Vi skal bruke PlatformIO og LVGL. 
