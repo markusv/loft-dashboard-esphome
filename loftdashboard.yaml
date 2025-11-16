@@ -118,7 +118,7 @@ lvgl:
 
   pages:
     - id: page_main
-      bg_color: 0x1A1F26  # dashboard background
+      bg_color: 0x000000  # dashboard background
       widgets:
         # Left panel (30%)
         - obj:
