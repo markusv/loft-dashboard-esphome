@@ -92,9 +92,15 @@ display:
 # ================================
 # Use ESPHome's standard font component (works with LVGL).
 font:
+  - file: "gfonts://Roboto"
+    id: font_clock
+    size: 72
+  - file: "gfonts://Roboto"
+    id: font_button_text
+    size: 16
   - file: "fonts/fa-solid-900.ttf"
-    id: fa_48
-    size: 48
+    id: font_button_icon
+    size: 16
     bpp: 4
     # Include only the glyphs we use (TV, Lightbulb, Music)
     glyphs:
@@ -112,197 +118,156 @@ lvgl:
 
   pages:
     - id: page_main
-      bg_color: 0x0F1419  # dashboard background
+      bg_color: 0x1A1F26  # dashboard background
       widgets:
-        # Title
-        - label:
-            id: lbl_clock
-            align: top_left
-            x: 16
-            y: 8
-            text_color: 0xC8CDD2
-            text: "--:--"
-
-        - label:
-            text: "Loft Dashboard"
-            align: top_mid
-            y: 8
-            text_color: 0xC8CDD2
-        # -------- Card: Vær --------
+        # Left panel (30%)
         - obj:
-            id: card_weather
-            width: 220
-            height: 360
-            x: 40
-            y: 80
-            bg_color: 0x1A1F26
-            border_color: 0x2A2D32
-            border_width: 2
-            radius: 30
-            pad_all: 20
-            widgets:
-              - label:
-                  text: "Vær"
-                  align: top_mid
-                  y: 10
-                  text_color: 0xFFFFFF
-              - label:
-                  text: "\uF0C2"   # Font Awesome cloud icon
-                  align: center
-                  y: -20
-                  text_color: 0xD5D9DE
-                  text_font: fa_48
-              - label:
-                  text: "Delvis skyet"
-                  align: center
-                  y: 50
-                  text_color: 0xC8CDD2
-              - label:
-                  text: "12°"
-                  align: bottom_mid
-                  y: -10
-                  text_color: 0xFFFFFF
-
-        # -------- Card: Stemninger --------
-        - obj:
-            id: card_stemninger
-            width: 220
-            height: 360
-            x: 300
-            y: 80
-            bg_color: 0x1A1F26
-            border_color: 0x2A2D32
-            border_width: 2
-            radius: 30
-            pad_top: 20
-            pad_bottom: 20
+            id: panel_left
+            width: 240
+            height: 480
+            align: left_mid
+            bg_color: 0x000000
+            border_width: 0
+            pad_top: 16
+            pad_bottom: 16
             pad_left: 16
             pad_right: 16
+            scrollbar_mode: "off"
             widgets:
               - label:
-                  text: "Stemninger"
-                  align: top_mid
+                  id: lbl_clock
+                  text: "--:--"
+                  text_font: font_clock
                   text_color: 0xFFFFFF
-              # -------- Button: TV --------
-              - button:
-                  id: btn_tv
-                  width: 180
-                  height: 80
                   align: top_mid
-                  y: 110
-                  bg_color: 0x24282E       # card bg
-                  border_color: 0x2A2D32   # card border
-                  border_width: 2
-                  radius: 20
-                  on_click:
-                    - mqtt.publish:
-                        topic: home/lpft/tv/toggle
-                        payload: "toggle"
+                  y: 0
+              - obj:
+                  id: panel_left_buttons
+                  width: 100%
+                  height: 360
+                  align: top_left
+                  y: 100
+                  bg_color: 0x000000
+                  bg_opa: 100%
+                  border_width: 0
+                  scrollbar_mode: "off"
+                  layout:
+                    type: flex
+                    flex_flow: column
+                    flex_align_main: start
+                    flex_align_cross: start
+                    pad_row: 16
                   widgets:
-                    - label:
-                        text: "\uF26C"     # Font Awesome TV
-                        text_font: fa_48
-                        text_color: 0xFFFFFF
-                        align: center
-                        y: -10
-                    - label:
-                        text: "TV"
-                        text_color: 0xC8CDD2
-                        align: bottom_mid
-                        y: -8
-              # -------- Button: Kveld (scene) --------
-              - button:
-                  id: btn_kveld
-                  width: 180
-                  height: 80
-                  align: top_mid
-                  y: 205
-                  bg_color: 0x24282E
-                  border_color: 0x2A2D32
-                  border_width: 2
-                  radius: 20
-                  on_click:
-                    - mqtt.publish:
-                        topic: home/lpft/scene/kveld
-                        payload: "on"
-                  widgets:
-                    - label:
-                        text: "\uF0EB"     # Font Awesome Lightbulb
-                        text_font: fa_48
-                        text_color: 0xFFFFFF
-                        align: center
-                        y: -10
-                    - label:
-                        text: "Kveld"
-                        text_color: 0xC8CDD2
-                        align: bottom_mid
-                        y: -8
-              # -------- Button: Lys (light toggle) --------
-              - button:
-                  id: btn_lys
-                  width: 180
-                  height: 80
-                  align: top_mid
-                  y: 300
-                  bg_color: 0x24282E
-                  border_color: 0x2A2D32
-                  border_width: 2
-                  radius: 20
-                  on_click:
-                    - mqtt.publish:
-                        topic: home/lpft/light/toggle
-                        payload: "toggle"
-                  widgets:
-                    - label:
-                        text: "\uF001"     # Font Awesome Music (change if you want)
-                        text_font: fa_48
-                        text_color: 0xFFFFFF
-                        align: center
-                        y: -10
-                    - label:
-                        text: "Lys"
-                        text_color: 0xC8CDD2
-                        align: bottom_mid
-                        y: -8
-
-        # -------- Card: Enheter --------
+                    # Button: TV
+                    - button:
+                        id: btn_tv
+                        width: 100%
+                        height: 64
+                        bg_color: 0x000000
+                        border_color: 0x2A2D32
+                        border_width: 2
+                        radius: 12
+                        pad_left: 16
+                        pad_right: 16
+                        pad_top: 12
+                        pad_bottom: 12
+                        on_boot:
+                          - lambda: |-
+                              auto *btn = id(btn_tv);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_PRESSED);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_CHECKED);
+                        on_click:
+                          - mqtt.publish:
+                              topic: /stemning/loft
+                              payload: "toggle"
+                        widgets:
+                          - label:
+                              text: "\uF26C"
+                              text_font: font_button_icon
+                              text_color: 0xFFFFFF
+                              align: left_mid
+                              x: 0
+                          - label:
+                              text: "TV"
+                              text_font: font_button_text
+                              text_color: 0xC8CDD2
+                              align: left_mid
+                              x: 48
+                    # Button: Kveld
+                    - button:
+                        id: btn_kveld
+                        width: 100%
+                        height: 64
+                        bg_color: 0x000000
+                        border_color: 0x2A2D32
+                        border_width: 2
+                        radius: 12
+                        pad_left: 16
+                        pad_right: 16
+                        pad_top: 12
+                        pad_bottom: 12
+                        on_boot:
+                          - lambda: |-
+                              auto *btn = id(btn_kveld);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_PRESSED);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_CHECKED);
+                        on_click:
+                          - mqtt.publish:
+                              topic: /stemning/loft
+                              payload: "Kveld"
+                        widgets:
+                          - label:
+                              text: "\uF0EB"
+                              text_font: font_button_icon
+                              text_color: 0xFFFFFF
+                              align: left_mid
+                              x: 0
+                          - label:
+                              text: "Kveld"
+                              text_font: font_button_text
+                              text_color: 0xC8CDD2
+                              align: left_mid
+                              x: 48
+                    # Button: Lys
+                    - button:
+                        id: btn_lys
+                        width: 100%
+                        height: 64
+                        bg_color: 0x000000
+                        border_color: 0x2A2D32
+                        border_width: 2
+                        radius: 12
+                        pad_left: 16
+                        pad_right: 16
+                        pad_top: 12
+                        pad_bottom: 12
+                        on_boot:
+                          - lambda: |-
+                              auto *btn = id(btn_lys);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_PRESSED);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_CHECKED);
+                        on_click:
+                          - mqtt.publish:
+                              topic: /stemning/loft
+                              payload: "Les"
+                        widgets:
+                          - label:
+                              text: "\uF001"
+                              text_font: font_button_icon
+                              text_color: 0xFFFFFF
+                              align: left_mid
+                              x: 0
+                          - label:
+                              text: "Lys"
+                              text_font: font_button_text
+                              text_color: 0xC8CDD2
+                              align: left_mid
+                              x: 48
+        # Right panel (70%)
         - obj:
-            id: card_devices
-            width: 220
-            height: 360
-            x: 560
-            y: 80
-            bg_color: 0x1A1F26
-            border_color: 0x2A2D32
-            border_width: 2
-            radius: 30
-            pad_all: 24
-            widgets:
-              - label:
-                  text: "Enheter"
-                  align: top_mid
-                  text_color: 0xFFFFFF
-              - label:
-                  text: "Rullegardin"
-                  align: top_left
-                  x: 0
-                  y: 70
-                  text_color: 0xC8CDD2
-              - label:
-                  text: "Sonos"
-                  align: top_left
-                  x: 0
-                  y: 120
-                  text_color: 0xC8CDD2
-              - label:
-                  text: "Temperatur"
-                  align: top_left
-                  x: 0
-                  y: 170
-                  text_color: 0xC8CDD2
-              - label:
-                  text: "21,0°"
-                  align: top_left
-                  x: 0
-                  y: 220
-                  text_color: 0xFFFFFF
+            id: panel_right
+            width: 560
+            height: 480
+            align: right_mid
+            bg_color: 0x000000
+            border_width: 0
