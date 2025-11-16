@@ -47,6 +47,7 @@ psram:
 
 # --- MQTT (Homey/HA bridge) ---
 mqtt:
+  id: mqtt_client
   broker: !secret mqtt_host
   username: !secret mqtt_user
   password: !secret mqtt_pass
@@ -57,6 +58,103 @@ mqtt:
   will_message:
     topic: home/waveshare7/availability
     payload: offline
+
+# --- MQTT Text Sensors for Light Status ---
+text_sensor:
+  - platform: mqtt_subscribe
+    name: "Lys ved TV Status"
+    id: mqtt_lys_ved_tv_status
+    topic: "homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/onoff"
+    on_value:
+      - lambda: |-
+          bool is_on = (x == "true");
+          auto *btn = id(btn_lys_ved_tv);
+          if (is_on) {
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+          } else {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+          }
+          auto *icon = id(icon_lys_ved_tv);
+          lv_obj_set_style_text_color(icon, lv_color_hex(is_on ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+  - platform: mqtt_subscribe
+    name: "Snowball Status"
+    id: mqtt_snowball_status
+    topic: "homie/5/f3b5872d-e02d-4334-b36a-339c2610d063/main/onoff"
+    on_value:
+      - lambda: |-
+          bool is_on = (x == "true");
+          auto *btn = id(btn_snowball);
+          if (is_on) {
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+          } else {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+          }
+          auto *icon = id(icon_snowball);
+          lv_obj_set_style_text_color(icon, lv_color_hex(is_on ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+  - platform: mqtt_subscribe
+    name: "Sofa Status"
+    id: mqtt_sofa_status
+    topic: "homie/5/7ca3b95a-13d5-48de-a10f-5cf2bca6ee74/main/onoff"
+    on_value:
+      - lambda: |-
+          bool is_on = (x == "true");
+          auto *btn = id(btn_sofa);
+          if (is_on) {
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+          } else {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+          }
+          auto *icon = id(icon_sofa);
+          lv_obj_set_style_text_color(icon, lv_color_hex(is_on ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+  - platform: mqtt_subscribe
+    name: "Ved Kaffemaskin Status"
+    id: mqtt_ved_kaffemaskin_status
+    topic: "homie/5/ade7d274-e4ec-451b-9e55-e422f6a33fce/main/onoff"
+    on_value:
+      - lambda: |-
+          bool is_on = (x == "true");
+          auto *btn = id(btn_ved_kaffemaskin);
+          if (is_on) {
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+          } else {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+          }
+          auto *icon = id(icon_ved_kaffemaskin);
+          lv_obj_set_style_text_color(icon, lv_color_hex(is_on ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+  - platform: mqtt_subscribe
+    name: "Taklys Status 1"
+    id: mqtt_taklys_status_1
+    topic: "homie/5/5407dde9-15d9-4935-baa5-3bdcfa80e515/main/onoff"
+    on_value:
+      - lambda: |-
+          bool is_on = (x == "true");
+          auto *btn = id(btn_taklys);
+          bool status2 = id(mqtt_taklys_status_2).has_state() && (id(mqtt_taklys_status_2).state == "true");
+          bool should_be_checked = is_on || status2;
+          if (should_be_checked) {
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+          } else {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+          }
+          auto *icon = id(icon_taklys);
+          lv_obj_set_style_text_color(icon, lv_color_hex(should_be_checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+  - platform: mqtt_subscribe
+    name: "Taklys Status 2"
+    id: mqtt_taklys_status_2
+    topic: "homie/5/70b068f8-9033-4bff-a7e9-253cc502b571/main/onoff"
+    on_value:
+      - lambda: |-
+          bool is_on = (x == "true");
+          auto *btn = id(btn_taklys);
+          bool status1 = id(mqtt_taklys_status_1).has_state() && (id(mqtt_taklys_status_1).state == "true");
+          bool should_be_checked = is_on || status1;
+          if (should_be_checked) {
+            lv_obj_add_state(btn, LV_STATE_CHECKED);
+          } else {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED);
+          }
+          auto *icon = id(icon_taklys);
+          lv_obj_set_style_text_color(icon, lv_color_hex(should_be_checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
 
 # --- I2C for GT911 + CH422G ---
 i2c:
@@ -108,6 +206,13 @@ font:
       - "\uF0EB"
       - "\uF0C2"
       - "\uF001"
+  - file: "fonts/fa-solid-900.ttf"
+    id: fa_48
+    size: 48
+    bpp: 4
+    # Include only the glyphs we use (Lightbulb)
+    glyphs:
+      - "\uF0EB"
 
 # ================================
 #           LVGL UI
@@ -174,8 +279,8 @@ lvgl:
                         on_boot:
                           - lambda: |-
                               auto *btn = id(btn_tv);
-                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_PRESSED);
-                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_CHECKED);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
@@ -209,8 +314,8 @@ lvgl:
                         on_boot:
                           - lambda: |-
                               auto *btn = id(btn_kveld);
-                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_PRESSED);
-                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_CHECKED);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
@@ -244,8 +349,8 @@ lvgl:
                         on_boot:
                           - lambda: |-
                               auto *btn = id(btn_lys);
-                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_PRESSED);
-                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), LV_PART_MAIN | LV_STATE_CHECKED);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
@@ -263,11 +368,267 @@ lvgl:
                               text_color: 0xC8CDD2
                               align: left_mid
                               x: 48
-        # Right panel (70%)
+        # Right panel (70%) - split into two panels
+        # Right panel left half (50%)
         - obj:
-            id: panel_right
-            width: 560
+            id: panel_right_left
+            width: 280
+            height: 480
+            align: left_mid
+            x: 240
+            bg_color: 0x1a1a1c
+            border_width: 0
+            pad_all: 16
+            layout:
+              type: flex
+              flex_flow: row_wrap
+              flex_align_main: space_evenly
+              flex_align_cross: start
+              flex_align_track: start
+              pad_row: 16
+              pad_column: 16
+            widgets:
+              # Button 1: Lys ved TV
+              - button:
+                  id: btn_lys_ved_tv
+                  width: 100
+                  height: 100
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  outline_width: 0
+                  radius: 50
+                  clip_corner: false
+                  checkable: true
+                  on_boot:
+                    - lambda: |-
+                        auto *btn = id(btn_lys_ved_tv);
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                  on_click:
+                    - lambda: |-
+                        bool checked = lv_obj_has_state(id(btn_lys_ved_tv), LV_STATE_CHECKED);
+                        std::string payload = checked ? "true" : "false";
+                        id(mqtt_client).publish("homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/onoff/set", payload, 0, false);
+                        auto *icon = id(icon_lys_ved_tv);
+                        lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                  widgets:
+                    - label:
+                        id: icon_lys_ved_tv
+                        text: "\uF0EB"
+                        text_font: fa_48
+                        text_color: 0xFFFFFF
+                        align: center
+                        y: -20
+                    - label:
+                        text: "Lys ved TV"
+                        text_font: font_button_text
+                        text_color: 0xC8CDD2
+                        align: bottom_mid
+                        y: -8
+              # Button 2: Snowball
+              - button:
+                  id: btn_snowball
+                  width: 100
+                  height: 100
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  outline_width: 0
+                  radius: 50
+                  clip_corner: false
+                  checkable: true
+                  on_boot:
+                    - lambda: |-
+                        auto *btn = id(btn_snowball);
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                  on_click:
+                    - lambda: |-
+                        bool checked = lv_obj_has_state(id(btn_snowball), LV_STATE_CHECKED);
+                        std::string payload = checked ? "true" : "false";
+                        id(mqtt_client).publish("homie/5/f3b5872d-e02d-4334-b36a-339c2610d063/main/onoff/set", payload, 0, false);
+                        auto *icon = id(icon_snowball);
+                        lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                  widgets:
+                    - label:
+                        id: icon_snowball
+                        text: "\uF0EB"
+                        text_font: fa_48
+                        text_color: 0xFFFFFF
+                        align: center
+                        y: -20
+                    - label:
+                        text: "Snowball"
+                        text_font: font_button_text
+                        text_color: 0xC8CDD2
+                        align: bottom_mid
+                        y: -8
+              # Button 3: Sofa
+              - button:
+                  id: btn_sofa
+                  width: 100
+                  height: 100
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  outline_width: 0
+                  radius: 50
+                  clip_corner: false
+                  checkable: true
+                  on_boot:
+                    - lambda: |-
+                        auto *btn = id(btn_sofa);
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                  on_click:
+                    - lambda: |-
+                        bool checked = lv_obj_has_state(id(btn_sofa), LV_STATE_CHECKED);
+                        std::string payload = checked ? "true" : "false";
+                        id(mqtt_client).publish("homie/5/7ca3b95a-13d5-48de-a10f-5cf2bca6ee74/main/onoff/set", payload, 0, false);
+                        auto *icon = id(icon_sofa);
+                        lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                  widgets:
+                    - label:
+                        id: icon_sofa
+                        text: "\uF0EB"
+                        text_font: fa_48
+                        text_color: 0xFFFFFF
+                        align: center
+                        y: -20
+                    - label:
+                        text: "Sofa"
+                        text_font: font_button_text
+                        text_color: 0xC8CDD2
+                        align: bottom_mid
+                        y: -8
+              # Button 4: Ved Kaffemaskin
+              - button:
+                  id: btn_ved_kaffemaskin
+                  width: 100
+                  height: 100
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  outline_width: 0
+                  radius: 50
+                  clip_corner: false
+                  checkable: true
+                  on_boot:
+                    - lambda: |-
+                        auto *btn = id(btn_ved_kaffemaskin);
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                  on_click:
+                    - lambda: |-
+                        bool checked = lv_obj_has_state(id(btn_ved_kaffemaskin), LV_STATE_CHECKED);
+                        std::string payload = checked ? "true" : "false";
+                        id(mqtt_client).publish("homie/5/ade7d274-e4ec-451b-9e55-e422f6a33fce/main/onoff/set", payload, 0, false);
+                        auto *icon = id(icon_ved_kaffemaskin);
+                        lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                  widgets:
+                    - label:
+                        id: icon_ved_kaffemaskin
+                        text: "\uF0EB"
+                        text_font: fa_48
+                        text_color: 0xFFFFFF
+                        align: center
+                        y: -20
+                    - label:
+                        text: "Kaffemaskin"
+                        text_font: font_button_text
+                        text_color: 0xC8CDD2
+                        align: bottom_mid
+                        y: -8
+              # Button 5: Taklys (needs to publish to 2 topics)
+              - button:
+                  id: btn_taklys
+                  width: 100
+                  height: 100
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  outline_width: 0
+                  radius: 50
+                  clip_corner: false
+                  checkable: true
+                  on_boot:
+                    - lambda: |-
+                        auto *btn = id(btn_taklys);
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_bg_color(btn, lv_color_hex(0x1a1a1c), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_border_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                  on_click:
+                    - lambda: |-
+                        bool checked = lv_obj_has_state(id(btn_taklys), LV_STATE_CHECKED);
+                        std::string payload = checked ? "true" : "false";
+                        id(mqtt_client).publish("homie/5/5407dde9-15d9-4935-baa5-3bdcfa80e515/main/onoff/set", payload, 0, false);
+                        id(mqtt_client).publish("homie/5/70b068f8-9033-4bff-a7e9-253cc502b571/main/onoff/set", payload, 0, false);
+                        auto *icon = id(icon_taklys);
+                        lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                  widgets:
+                    - label:
+                        id: icon_taklys
+                        text: "\uF0EB"
+                        text_font: fa_48
+                        text_color: 0xFFFFFF
+                        align: center
+                        y: -20
+                    - label:
+                        text: "Taklys"
+                        text_font: font_button_text
+                        text_color: 0xC8CDD2
+                        align: bottom_mid
+                        y: -8
+        # Right panel right half (50%)
+        - obj:
+            id: panel_right_right
+            width: 280
             height: 480
             align: right_mid
-            bg_color: 0x000000
+            bg_color: 0x1a1a1c
             border_width: 0
