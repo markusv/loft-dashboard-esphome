@@ -195,7 +195,8 @@ font:
     size: 72
   - file: "gfonts://Roboto"
     id: font_heading
-    size: 48
+    size: 32t
+    
   - file: "gfonts://Roboto"
     id: font_button_text
     size: 16
@@ -277,6 +278,8 @@ lvgl:
                         border_color: 0x2A2D32
                         border_width: 2
                         radius: 12
+                        shadow_width: 0
+                        outline_width: 0
                         pad_left: 16
                         pad_right: 16
                         pad_top: 12
@@ -286,6 +289,12 @@ lvgl:
                               auto *btn = id(btn_tv);
                               lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
                               lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
@@ -312,6 +321,8 @@ lvgl:
                         border_color: 0x2A2D32
                         border_width: 2
                         radius: 12
+                        shadow_width: 0
+                        outline_width: 0
                         pad_left: 16
                         pad_right: 16
                         pad_top: 12
@@ -321,6 +332,12 @@ lvgl:
                               auto *btn = id(btn_kveld);
                               lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
                               lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
@@ -347,6 +364,8 @@ lvgl:
                         border_color: 0x2A2D32
                         border_width: 2
                         radius: 12
+                        shadow_width: 0
+                        outline_width: 0
                         pad_left: 16
                         pad_right: 16
                         pad_top: 12
@@ -356,6 +375,12 @@ lvgl:
                               auto *btn = id(btn_lys);
                               lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
                               lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_CHECKED));
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
