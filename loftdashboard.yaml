@@ -156,6 +156,89 @@ text_sensor:
           auto *icon = id(icon_taklys);
           lv_obj_set_style_text_color(icon, lv_color_hex(should_be_checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
 
+# --- MQTT Temperature Sensor ---
+sensor:
+  - platform: mqtt_subscribe
+    name: "Temperature"
+    id: mqtt_temperature
+    topic: "homie/5/95677a74-cdf4-451a-8a18-a2fe7ac8351d/main/measure_temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    state_class: measurement
+    on_value:
+      - lambda: |-
+          // Update temperature label
+          float temp = x;
+          char temp_str[16];
+          snprintf(temp_str, sizeof(temp_str), "%.1f°C", temp);
+          lv_label_set_text(id(lbl_temperature), temp_str);
+          
+          // Add to history (keep last 50 readings)
+          static std::vector<float> history;
+          history.push_back(temp);
+          if (history.size() > 50) {
+            history.erase(history.begin());
+          }
+          
+          // Draw chart on canvas
+          auto *canvas = id(chart_temperature);
+          if (history.size() > 1) {
+            // Find min/max for scaling
+            float min_val = history[0];
+            float max_val = history[0];
+            for (float val : history) {
+              if (val < min_val) min_val = val;
+              if (val > max_val) max_val = val;
+            }
+            float range = max_val - min_val;
+            if (range < 1.0) {
+              min_val -= 0.5;
+              max_val += 0.5;
+              range = max_val - min_val;
+            }
+            
+            // Clear canvas
+            lv_draw_rect_dsc_t rect_dsc;
+            lv_draw_rect_dsc_init(&rect_dsc);
+            rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
+            lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
+            
+            // Draw grid lines
+            lv_draw_line_dsc_t grid_dsc;
+            lv_draw_line_dsc_init(&grid_dsc);
+            grid_dsc.color = lv_color_hex(0x2A2D32);
+            grid_dsc.width = 1;
+            
+            // Horizontal grid lines
+            for (int i = 0; i <= 4; i++) {
+              int y = 15 + (i * 135 / 4);
+              lv_point_t grid_points[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
+              lv_canvas_draw_line(canvas, grid_points, 2, &grid_dsc);
+            }
+            
+            // Draw temperature line
+            lv_draw_line_dsc_t line_dsc;
+            lv_draw_line_dsc_init(&line_dsc);
+            line_dsc.color = lv_color_hex(0x27BAFD);
+            line_dsc.width = 2;
+            
+            std::vector<lv_point_t> points;
+            points.resize(history.size());
+            
+            for (size_t i = 0; i < history.size(); i++) {
+              int x = 10 + (i * 228 / (history.size() - 1));
+              float normalized = (history[i] - min_val) / range;
+              int y = 150 - (normalized * 135);
+              points[i] = {(lv_coord_t)x, (lv_coord_t)y};
+            }
+            
+            if (points.size() > 1) {
+              lv_canvas_draw_line(canvas, points.data(), points.size(), &line_dsc);
+            }
+            
+            lv_obj_invalidate(canvas);
+          }
+
 # --- I2C for GT911 + CH422G ---
 i2c:
   sda: GPIO8
@@ -195,8 +278,10 @@ font:
     size: 72
   - file: "gfonts://Roboto"
     id: font_heading
-    size: 32t
-    
+    size: 32
+  - file: "gfonts://Roboto"
+    id: chart_heading
+    size: 20
   - file: "gfonts://Roboto"
     id: font_button_text
     size: 16
@@ -705,15 +790,16 @@ lvgl:
                   scrollbar_mode: "off"
                   layout:
                     type: flex
-                    flex_flow: column
-                    flex_align_main: start
+                    flex_flow: row
+                    flex_align_main: space_evenly
                     flex_align_cross: start
                     pad_row: 16
+                    pad_column: 8
                   widgets:
                     # Button: Opp
                     - button:
                         id: btn_rullegardiner_opp
-                        width: 100%
+                        width: 48%
                         height: 64
                         bg_color: 0x1a1a1c
                         border_color: 0x2A2D32
@@ -750,11 +836,11 @@ lvgl:
                               text_font: font_button_text
                               text_color: 0xC8CDD2
                               align: left_mid
-                              x: 48
+                              x: 32
                     # Button: Ned
                     - button:
                         id: btn_rullegardiner_ned
-                        width: 100%
+                        width: 48%
                         height: 64
                         bg_color: 0x1a1a1c
                         border_color: 0x2A2D32
@@ -791,4 +877,48 @@ lvgl:
                               text_font: font_button_text
                               text_color: 0xC8CDD2
                               align: left_mid
-                              x: 48
+                              x: 32
+              # Temperature section
+              - obj:
+                  id: temp_header
+                  width: 100%
+                  height: 32
+                  align: top_mid
+                  y: 180
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  layout:
+                    type: flex
+                    flex_flow: row
+                    flex_align_main: center
+                    flex_align_cross: center
+                  widgets:
+                    - label:
+                        text: "Temperatur"
+                        text_font: chart_heading
+                        text_color: 0xFFFFFF
+                        align: center
+                    - label:
+                        id: lbl_temperature
+                        text: "--°C"
+                        text_font: chart_heading
+                        text_color: 0xFFFFFF
+                        align: center
+                        x: 8
+              - canvas:
+                  id: chart_temperature
+                  width: 248
+                  height: 165
+                  align: top_mid
+                  y: 220
+                  bg_color: 0x1a1a1c
+                  border_color: 0x2A2D32
+                  border_width: 2
+                  radius: 12
+                  on_boot:
+                    - lambda: |-
+                        // Initialize canvas buffer
+                        static lv_color_t *buf = (lv_color_t*)lv_mem_alloc(248 * 165 * sizeof(lv_color_t));
+                        if (buf) {
+                          lv_canvas_set_buffer(id(chart_temperature), buf, 248, 165, LV_IMG_CF_TRUE_COLOR);
+                        }
