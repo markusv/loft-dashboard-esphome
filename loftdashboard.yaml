@@ -182,7 +182,9 @@ sensor:
           
           // Draw chart on canvas
           auto *canvas = id(chart_temperature);
-          if (history.size() > 1) {
+          
+          // Always clear and redraw, even with single point
+          if (history.size() >= 1) {
             // Find min/max for scaling
             float min_val = history[0];
             float max_val = history[0];
@@ -216,23 +218,23 @@ sensor:
               lv_canvas_draw_line(canvas, grid_points, 2, &grid_dsc);
             }
             
-            // Draw temperature line
-            lv_draw_line_dsc_t line_dsc;
-            lv_draw_line_dsc_init(&line_dsc);
-            line_dsc.color = lv_color_hex(0x27BAFD);
-            line_dsc.width = 2;
-            
-            std::vector<lv_point_t> points;
-            points.resize(history.size());
-            
-            for (size_t i = 0; i < history.size(); i++) {
-              int x = 10 + (i * 228 / (history.size() - 1));
-              float normalized = (history[i] - min_val) / range;
-              int y = 150 - (normalized * 135);
-              points[i] = {(lv_coord_t)x, (lv_coord_t)y};
-            }
-            
-            if (points.size() > 1) {
+            // Draw temperature line (only if we have more than one point)
+            if (history.size() > 1) {
+              lv_draw_line_dsc_t line_dsc;
+              lv_draw_line_dsc_init(&line_dsc);
+              line_dsc.color = lv_color_hex(0x27BAFD);
+              line_dsc.width = 2;
+              
+              std::vector<lv_point_t> points;
+              points.resize(history.size());
+              
+              for (size_t i = 0; i < history.size(); i++) {
+                int x = 10 + (i * 228 / (history.size() - 1));
+                float normalized = (history[i] - min_val) / range;
+                int y = 150 - (normalized * 135);
+                points[i] = {(lv_coord_t)x, (lv_coord_t)y};
+              }
+              
               lv_canvas_draw_line(canvas, points.data(), points.size(), &line_dsc);
             }
             
@@ -920,5 +922,26 @@ lvgl:
                         // Initialize canvas buffer
                         static lv_color_t *buf = (lv_color_t*)lv_mem_alloc(248 * 165 * sizeof(lv_color_t));
                         if (buf) {
-                          lv_canvas_set_buffer(id(chart_temperature), buf, 248, 165, LV_IMG_CF_TRUE_COLOR);
+                          auto *canvas = id(chart_temperature);
+                          lv_canvas_set_buffer(canvas, buf, 248, 165, LV_IMG_CF_TRUE_COLOR);
+                          
+                          // Clear canvas with background color
+                          lv_draw_rect_dsc_t rect_dsc;
+                          lv_draw_rect_dsc_init(&rect_dsc);
+                          rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
+                          lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
+                          
+                          // Draw initial grid lines
+                          lv_draw_line_dsc_t grid_dsc;
+                          lv_draw_line_dsc_init(&grid_dsc);
+                          grid_dsc.color = lv_color_hex(0x2A2D32);
+                          grid_dsc.width = 1;
+                          
+                          for (int i = 0; i <= 4; i++) {
+                            int y = 15 + (i * 135 / 4);
+                            lv_point_t grid_points[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
+                            lv_canvas_draw_line(canvas, grid_points, 2, &grid_dsc);
+                          }
+                          
+                          lv_obj_invalidate(canvas);
                         }
