@@ -203,12 +203,14 @@ font:
     id: font_button_icon
     size: 16
     bpp: 4
-    # Include only the glyphs we use (TV, Lightbulb, Music)
+    # Include only the glyphs we use (TV, Lightbulb, Music, Arrow Up, Arrow Down)
     glyphs:
       - "\uF26C"
       - "\uF0EB"
       - "\uF0C2"
       - "\uF001"
+      - "\uF062"
+      - "\uF063"
   - file: "fonts/fa-solid-900.ttf"
     id: fa_48
     size: 48
@@ -656,3 +658,114 @@ lvgl:
             bg_color: 0x1a1a1c
             border_width: 0
             radius: 0
+            pad_all: 16
+            scrollbar_mode: "off"
+            widgets:
+              # Heading: "Rullegardiner"
+              - label:
+                  text: "Rullegardiner"
+                  text_font: font_heading
+                  text_color: 0xFFFFFF
+                  align: top_mid
+                  y: 0
+              # Buttons container with flex layout
+              - obj:
+                  id: panel_right_right_buttons
+                  width: 100%
+                  height: 400
+                  align: top_left
+                  y: 60
+                  bg_color: 0x1a1a1c
+                  border_width: 0
+                  scrollbar_mode: "off"
+                  layout:
+                    type: flex
+                    flex_flow: column
+                    flex_align_main: start
+                    flex_align_cross: start
+                    pad_row: 16
+                  widgets:
+                    # Button: Opp
+                    - button:
+                        id: btn_rullegardiner_opp
+                        width: 100%
+                        height: 64
+                        bg_color: 0x000000
+                        border_color: 0x2A2D32
+                        border_width: 1
+                        radius: 0
+                        outline_width: 0
+                        pad_left: 16
+                        pad_right: 16
+                        pad_top: 12
+                        pad_bottom: 12
+                        on_boot:
+                          - lambda: |-
+                              auto *btn = id(btn_rullegardiner_opp);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_border_width(btn, 1, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_border_width(btn, 1, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        on_click:
+                          - lambda: |-
+                              std::string payload = "1";
+                              id(mqtt_client).publish("homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/395607c8-d444-41d4-90e9-3de7ee364ff4/main/windowcoverings_set/set", payload, 0, false);
+                        widgets:
+                          - label:
+                              text: "\uF062"
+                              text_font: font_button_icon
+                              text_color: 0xFFFFFF
+                              align: left_mid
+                              x: 0
+                          - label:
+                              text: "Opp"
+                              text_font: font_button_text
+                              text_color: 0xC8CDD2
+                              align: left_mid
+                              x: 48
+                    # Button: Ned
+                    - button:
+                        id: btn_rullegardiner_ned
+                        width: 100%
+                        height: 64
+                        bg_color: 0x000000
+                        border_color: 0x2A2D32
+                        border_width: 1
+                        radius: 0
+                        outline_width: 0
+                        pad_left: 16
+                        pad_right: 16
+                        pad_top: 12
+                        pad_bottom: 12
+                        on_boot:
+                          - lambda: |-
+                              auto *btn = id(btn_rullegardiner_ned);
+                              lv_obj_set_style_bg_color(btn, lv_color_hex(0x27BAFD), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_shadow_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_outline_width(btn, 0, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                              lv_obj_set_style_border_width(btn, 1, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
+                              lv_obj_set_style_border_width(btn, 1, (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+                        on_click:
+                          - lambda: |-
+                              std::string payload = "0";
+                              id(mqtt_client).publish("homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/395607c8-d444-41d4-90e9-3de7ee364ff4/main/windowcoverings_set/set", payload, 0, false);
+                        widgets:
+                          - label:
+                              text: "\uF063"
+                              text_font: font_button_icon
+                              text_color: 0xFFFFFF
+                              align: left_mid
+                              x: 0
+                          - label:
+                              text: "Ned"
+                              text_font: font_button_text
+                              text_color: 0xC8CDD2
+                              align: left_mid
+                              x: 48
