@@ -404,7 +404,7 @@ lvgl:
                         on_click:
                           - mqtt.publish:
                               topic: /stemning/loft
-                              payload: "toggle"
+                              payload: "TV"
                         widgets:
                           - label:
                               text: "\uF26C"
@@ -855,8 +855,8 @@ lvgl:
                         on_click:
                           - lambda: |-
                               std::string payload = "1";
-                              id(mqtt_client).publish("homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/windowcoverings_set/set", payload, 0, false);
                               id(mqtt_client).publish("homie/5/395607c8-d444-41d4-90e9-3de7ee364ff4/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/a3c22c40-c730-4546-a797-16ba446e2bb5/main/windowcoverings_set/set", payload, 0, false);
                         widgets:
                           - label:
                               text: "\uF062"
@@ -896,8 +896,8 @@ lvgl:
                         on_click:
                           - lambda: |-
                               std::string payload = "0";
-                              id(mqtt_client).publish("homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/windowcoverings_set/set", payload, 0, false);
                               id(mqtt_client).publish("homie/5/395607c8-d444-41d4-90e9-3de7ee364ff4/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/a3c22c40-c730-4546-a797-16ba446e2bb5/main/windowcoverings_set/set", payload, 0, false);
                         widgets:
                           - label:
                               text: "\uF063"
