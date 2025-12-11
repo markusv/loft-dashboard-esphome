@@ -177,7 +177,7 @@ text_sensor:
   - platform: mqtt_subscribe
     name: "Sofa Status"
     id: mqtt_sofa_status
-    topic: "homie/5/6019e7c5-7c2f-4a57-9ccd-2ab81e03b51bt/main/onoff"
+    topic: "homie/5/6019e7c5-7c2f-4a57-9ccd-2ab81e03b51b/main/onoff"
     on_value:
       - lambda: |-
           bool is_on = (x == "true");
@@ -668,7 +668,7 @@ lvgl:
                           - lambda: |-
                               bool checked = lv_obj_has_state(id(btn_sofa), LV_STATE_CHECKED);
                               std::string payload = checked ? "true" : "false";
-                              id(mqtt_client).publish("homie/5/6019e7c5-7c2f-4a57-9ccd-2ab81e03b51bt/main/onoff/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/6019e7c5-7c2f-4a57-9ccd-2ab81e03b51b/main/onoff/set", payload, 0, false);
                               auto *icon = id(icon_sofa);
                               lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
                         widgets:
