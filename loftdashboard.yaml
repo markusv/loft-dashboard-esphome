@@ -10,8 +10,21 @@ esp32:
     type: esp-idf
     sdkconfig_options:
       CONFIG_MBEDTLS_CERTIFICATE_BUNDLE: n
+      # Enable better crash reporting - print panic info then reboot
+      CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT: y
+      CONFIG_ESP_SYSTEM_PANIC_GDBSTUB: n
+      # Enable stack overflow detection
+      CONFIG_ESP_MAIN_TASK_STACK_SIZE: "8192"
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "10"
+      CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0: y
+      CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1: y
 
 logger:
+  level: DEBUG
+  logs:
+    "*": DEBUG
+    "lvgl": DEBUG
+    "display": DEBUG
 ota:
   - platform: esphome
 api:
@@ -38,6 +51,7 @@ interval:
   - interval: 1s
     then:
       - lambda: |-
+          ESP_LOGD("main", "Clock update tick");
           auto now = id(sntp_time).now();
           auto *label = id(lbl_clock);
           if (!now.is_valid()) {
@@ -49,87 +63,136 @@ interval:
   - interval: 1h
     then:
       - lambda: |-
-          // Update chart every hour with current temperature
-          // Get current temperature (use sensor state)
-          if (id(mqtt_temperature).has_state()) {
-            float temp = id(mqtt_temperature).state;
+          // Update chart every hour - 24 hours of history
+          ESP_LOGD("chart", "Chart update started");
+          
+          if (!id(mqtt_temperature).has_state()) {
+            ESP_LOGD("chart", "No temperature state");
+            return;
+          }
+          
+          float temp = id(mqtt_temperature).state;
+          ESP_LOGD("chart", "Temperature: %.1f", temp);
+          
+          // Add to history (keep last 24 points = 24 hours)
+          id(temp_history).push_back(temp);
+          if (id(temp_history).size() > 24) {
+            id(temp_history).erase(id(temp_history).begin());
+          }
+          
+          ESP_LOGD("chart", "History size: %d", id(temp_history).size());
+          
+          // Skip drawing if no data
+          if (id(temp_history).size() == 0) {
+            ESP_LOGD("chart", "No history data");
+            return;
+          }
+          
+          // Get canvas
+          auto *canvas = id(chart_temperature);
+          if (!canvas) {
+            ESP_LOGE("chart", "Canvas is null!");
+            return;
+          }
+          
+          ESP_LOGD("chart", "Canvas found, calculating min/max");
+          
+          // Find min/max for scaling
+          float min_val = id(temp_history)[0];
+          float max_val = id(temp_history)[0];
+          for (size_t i = 0; i < id(temp_history).size() && i < 24; i++) {
+            float val = id(temp_history)[i];
+            if (val < min_val) min_val = val;
+            if (val > max_val) max_val = val;
+          }
+          
+          float range = max_val - min_val;
+          if (range < 0.1f) {
+            min_val -= 0.5f;
+            max_val += 0.5f;
+            range = max_val - min_val;
+          }
+          
+          ESP_LOGD("chart", "Range: %.1f to %.1f", min_val, max_val);
+          
+          // Clear and redraw - simple approach
+          ESP_LOGD("chart", "Clearing canvas");
+          lv_draw_rect_dsc_t rect_dsc;
+          lv_draw_rect_dsc_init(&rect_dsc);
+          rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
+          lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
+          
+          ESP_LOGD("chart", "Drawing grid");
+          // Draw grid
+          lv_draw_line_dsc_t grid_dsc;
+          lv_draw_line_dsc_init(&grid_dsc);
+          grid_dsc.color = lv_color_hex(0x2A2D32);
+          grid_dsc.width = 1;
+          for (int i = 0; i <= 4; i++) {
+            int y = 15 + (i * 135 / 4);
+            lv_point_t pts[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
+            lv_canvas_draw_line(canvas, pts, 2, &grid_dsc);
+          }
+          
+          ESP_LOGD("chart", "Drawing chart");
+          size_t count = id(temp_history).size();
+          if (count > 24) count = 24;
+          
+          ESP_LOGD("chart", "Drawing %d points", count);
+          
+          if (count == 0) {
+            return;
+          }
+          
+          // Calculate all point positions first
+          int x_coords[24];
+          int y_coords[24];
+          
+          for (size_t i = 0; i < count; i++) {
+            int x = 10 + (int)(i * 228 / ((count > 1) ? (count - 1) : 1));
+            if (x < 10) x = 10;
+            if (x > 238) x = 238;
             
-            // Add to history (keep last 24 points = 24 hours at 1h intervals)
-            id(temp_history).push_back(temp);
-            if (id(temp_history).size() > 24) {
-              id(temp_history).erase(id(temp_history).begin());
-            }
+            float val = id(temp_history)[i];
+            float norm = (val - min_val) / range;
+            int y = 150 - (int)(norm * 135.0f);
+            if (y < 15) y = 15;
+            if (y > 150) y = 150;
             
-            // Draw chart on canvas
-            auto *canvas = id(chart_temperature);
-            if (!canvas) return;
+            x_coords[i] = x;
+            y_coords[i] = y;
+          }
+          
+          // Draw lines connecting the points
+          if (count > 1) {
+            ESP_LOGD("chart", "Drawing lines");
+            lv_draw_line_dsc_t line_dsc;
+            lv_draw_line_dsc_init(&line_dsc);
+            line_dsc.color = lv_color_hex(0x27BAFD);
+            line_dsc.width = 2;
             
-            if (id(temp_history).size() >= 1) {
-              // Find min/max for scaling
-              float min_val = id(temp_history)[0];
-              float max_val = id(temp_history)[0];
-              for (float val : id(temp_history)) {
-                if (val < min_val) min_val = val;
-                if (val > max_val) max_val = val;
-              }
-              float range = max_val - min_val;
-              if (range < 1.0) {
-                min_val -= 0.5;
-                max_val += 0.5;
-                range = max_val - min_val;
-              }
-              
-              // Clear canvas
-              lv_draw_rect_dsc_t rect_dsc;
-              lv_draw_rect_dsc_init(&rect_dsc);
-              rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
-              lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
-              
-              // Draw grid lines
-              lv_draw_line_dsc_t grid_dsc;
-              lv_draw_line_dsc_init(&grid_dsc);
-              grid_dsc.color = lv_color_hex(0x2A2D32);
-              grid_dsc.width = 1;
-              
-              // Horizontal grid lines
-              for (int i = 0; i <= 4; i++) {
-                int y = 15 + (i * 135 / 4);
-                lv_point_t grid_points[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
-                lv_canvas_draw_line(canvas, grid_points, 2, &grid_dsc);
-              }
-              
-              // Draw temperature line (only if we have more than one point)
-              if (id(temp_history).size() > 1) {
-                lv_draw_line_dsc_t line_dsc;
-                lv_draw_line_dsc_init(&line_dsc);
-                line_dsc.color = lv_color_hex(0x27BAFD);
-                line_dsc.width = 2;
-                
-                std::vector<lv_point_t> points;
-                points.resize(id(temp_history).size());
-                
-                for (size_t i = 0; i < id(temp_history).size(); i++) {
-                  int x = 10 + (i * 228 / (id(temp_history).size() - 1));
-                  float normalized = (id(temp_history)[i] - min_val) / range;
-                  int y = 150 - (normalized * 135);
-                  points[i] = {(lv_coord_t)x, (lv_coord_t)y};
-                }
-                
-                lv_canvas_draw_line(canvas, points.data(), points.size(), &line_dsc);
-              } else if (id(temp_history).size() == 1) {
-                // Draw a single point if we only have one reading
-                lv_draw_rect_dsc_t point_dsc;
-                lv_draw_rect_dsc_init(&point_dsc);
-                point_dsc.bg_color = lv_color_hex(0x27BAFD);
-                float normalized = (id(temp_history)[0] - min_val) / range;
-                int y = 150 - (normalized * 135);
-                // Draw a larger, more visible dot
-                lv_canvas_draw_rect(canvas, 115, y - 3, 6, 6, &point_dsc);
-              }
-              
-              lv_obj_invalidate(canvas);
+            for (size_t i = 0; i < count - 1; i++) {
+              lv_point_t line_points[2] = {
+                {(lv_coord_t)x_coords[i], (lv_coord_t)y_coords[i]},
+                {(lv_coord_t)x_coords[i + 1], (lv_coord_t)y_coords[i + 1]}
+              };
+              lv_canvas_draw_line(canvas, line_points, 2, &line_dsc);
             }
           }
+          
+          // Draw dots on top of the lines
+          ESP_LOGD("chart", "Drawing dots");
+          lv_draw_rect_dsc_t dot_dsc;
+          lv_draw_rect_dsc_init(&dot_dsc);
+          dot_dsc.bg_color = lv_color_hex(0x27BAFD);
+          
+          for (size_t i = 0; i < count; i++) {
+            lv_canvas_draw_rect(canvas, x_coords[i] - 2, y_coords[i] - 2, 4, 4, &dot_dsc);
+          }
+          
+          ESP_LOGD("chart", "Invalidating canvas");
+          lv_obj_invalidate(canvas);
+          ESP_LOGD("chart", "Chart update complete");
 
 psram:
   mode: octal
@@ -263,58 +326,8 @@ sensor:
           snprintf(temp_str, sizeof(temp_str), "%.1f°C", temp);
           lv_label_set_text(id(lbl_temperature), temp_str);
           
-          // If this is the first value, add it to history and draw a dot immediately
-          if (id(temp_history).size() == 0) {
-            id(temp_history).push_back(temp);
-            
-            // Draw chart on canvas
-            auto *canvas = id(chart_temperature);
-            if (canvas && id(temp_history).size() >= 1) {
-              // Find min/max for scaling
-              float min_val = id(temp_history)[0];
-              float max_val = id(temp_history)[0];
-              for (float val : id(temp_history)) {
-                if (val < min_val) min_val = val;
-                if (val > max_val) max_val = val;
-              }
-              float range = max_val - min_val;
-              if (range < 1.0) {
-                min_val -= 0.5;
-                max_val += 0.5;
-                range = max_val - min_val;
-              }
-              
-              // Clear canvas
-              lv_draw_rect_dsc_t rect_dsc;
-              lv_draw_rect_dsc_init(&rect_dsc);
-              rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
-              lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
-              
-              // Draw grid lines
-              lv_draw_line_dsc_t grid_dsc;
-              lv_draw_line_dsc_init(&grid_dsc);
-              grid_dsc.color = lv_color_hex(0x2A2D32);
-              grid_dsc.width = 1;
-              
-              // Horizontal grid lines
-              for (int i = 0; i <= 4; i++) {
-                int y = 15 + (i * 135 / 4);
-                lv_point_t grid_points[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
-                lv_canvas_draw_line(canvas, grid_points, 2, &grid_dsc);
-              }
-              
-              // Draw a dot for the first value
-              lv_draw_rect_dsc_t point_dsc;
-              lv_draw_rect_dsc_init(&point_dsc);
-              point_dsc.bg_color = lv_color_hex(0x27BAFD);
-              float normalized = (id(temp_history)[0] - min_val) / range;
-              int y = 150 - (normalized * 135);
-              // Draw a larger, more visible dot
-              lv_canvas_draw_rect(canvas, 115, y - 3, 6, 6, &point_dsc);
-              
-              lv_obj_invalidate(canvas);
-            }
-          }
+          // Note: Chart updates are handled by the 1-minute interval
+          // This callback just updates the label
 
 # --- I2C for GT911 + CH422G ---
 i2c:
@@ -676,7 +689,7 @@ lvgl:
                         on_click:
                           - lambda: |-
                               bool checked = lv_obj_has_state(id(btn_snowball), LV_STATE_CHECKED);
-                              std::string payload = checked ? "true" : "false";
+                              std::     string payload = checked ? "true" : "false";
                               id(mqtt_client).publish("homie/5/f3b5872d-e02d-4334-b36a-339c2610d063/main/onoff/set", payload, 0, false);
                               auto *icon = id(icon_snowball);
                               lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
@@ -1012,42 +1025,67 @@ lvgl:
                   radius: 12
                   on_boot:
                     - lambda: |-
-                        // Initialize canvas buffer
-                        auto *canvas = id(chart_temperature);
-                        if (!canvas) return;
+                        // TEMPORARILY DISABLED - Testing if canvas causes crash
+                        // Initialize canvas buffer with debug logging
+                        ESP_LOGI("canvas", "=== Canvas boot initialization started ===");
+                        delay(500); // Longer delay to ensure LVGL is fully ready
                         
-                        // Allocate canvas buffer (248 * 165 * sizeof(lv_color_t))
-                        // For RGB565: sizeof(lv_color_t) = 2 bytes
-                        // For RGB888: sizeof(lv_color_t) = 4 bytes
+                        auto *canvas = id(chart_temperature);
+                        if (!canvas) {
+                          ESP_LOGE("canvas", "Canvas is null!");
+                          return;
+                        }
+                        ESP_LOGI("canvas", "Canvas object found");
+                        
+                        ESP_LOGI("canvas", "Calculating buffer size");
                         size_t buf_size = 248 * 165 * sizeof(lv_color_t);
+                        ESP_LOGI("canvas", "Buffer size: %d bytes", buf_size);
+                        
                         static lv_color_t *buf = nullptr;
                         
                         if (!buf) {
+                          ESP_LOGI("canvas", "Allocating canvas buffer");
                           buf = (lv_color_t*)lv_mem_alloc(buf_size);
                           if (!buf) {
-                            ESP_LOGE("canvas", "Failed to allocate canvas buffer");
+                            ESP_LOGE("canvas", "Failed to allocate canvas buffer!");
                             return;
                           }
+                          ESP_LOGI("canvas", "Canvas buffer allocated successfully");
+                        } else {
+                          ESP_LOGI("canvas", "Canvas buffer already allocated");
                         }
                         
+                        ESP_LOGI("canvas", "Setting canvas buffer");
                         lv_canvas_set_buffer(canvas, buf, 248, 165, LV_IMG_CF_TRUE_COLOR);
+                        ESP_LOGI("canvas", "Canvas buffer set");
                         
-                        // Clear canvas with background color
+                        delay(100);
+                        
+                        ESP_LOGI("canvas", "Clearing canvas");
+                        // Clear canvas
                         lv_draw_rect_dsc_t rect_dsc;
                         lv_draw_rect_dsc_init(&rect_dsc);
                         rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
                         lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
+                        ESP_LOGI("canvas", "Canvas cleared");
                         
-                        // Draw initial grid lines
+                        delay(100);
+                        
+                        ESP_LOGI("canvas", "Drawing grid lines");
+                        // Draw grid
                         lv_draw_line_dsc_t grid_dsc;
                         lv_draw_line_dsc_init(&grid_dsc);
                         grid_dsc.color = lv_color_hex(0x2A2D32);
                         grid_dsc.width = 1;
-                        
                         for (int i = 0; i <= 4; i++) {
                           int y = 15 + (i * 135 / 4);
-                          lv_point_t grid_points[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
-                          lv_canvas_draw_line(canvas, grid_points, 2, &grid_dsc);
+                          lv_point_t pts[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
+                          lv_canvas_draw_line(canvas, pts, 2, &grid_dsc);
                         }
+                        ESP_LOGI("canvas", "Grid lines drawn");
                         
+                        delay(100);
+                        
+                        ESP_LOGI("canvas", "Invalidating canvas");
                         lv_obj_invalidate(canvas);
+                        ESP_LOGI("canvas", "=== Canvas initialization complete ===");
