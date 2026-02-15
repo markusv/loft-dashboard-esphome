@@ -20,11 +20,11 @@ esp32:
       CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1: y
 
 logger:
-  level: DEBUG
+  level: ERROR
   logs:
-    "*": DEBUG
-    "lvgl": DEBUG
-    "display": DEBUG
+    "*": ERROR
+    "lvgl": ERROR
+    "display": ERROR
 ota:
   - platform: esphome
 api:
