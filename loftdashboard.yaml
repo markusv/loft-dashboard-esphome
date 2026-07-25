@@ -1,6 +1,6 @@
 esphome:
   name: waveshare-s3-7
-  friendly_name: "Waveshare S3 7\""
+  friendly_name: 'Waveshare S3 7"'
   min_version: 2024.10.0
 
 esp32:
@@ -41,11 +41,15 @@ time:
     id: sntp_time
     timezone: Europe/Oslo
 
-# Global temperature history storage
+# Temperature history: one sample per hour (last 24 hours)
 globals:
   - id: temp_history
     type: std::vector<float>
     restore_value: false
+  - id: chart_ready
+    type: bool
+    restore_value: false
+    initial_value: "false"
 
 interval:
   - interval: 1s
@@ -60,70 +64,42 @@ interval:
             auto text = now.strftime("%H:%M");
             lv_label_set_text(label, text.c_str());
           }
+  # Append one hourly sample (24h window)
   - interval: 1h
     then:
+      - script.execute: record_chart_sample
+
+script:
+  # Draw temp_history onto the canvas (no new samples)
+  - id: redraw_chart
+    then:
       - lambda: |-
-          // Update chart every hour - 24 hours of history
-          ESP_LOGD("chart", "Chart update started");
-          
-          if (!id(mqtt_temperature).has_state()) {
-            ESP_LOGD("chart", "No temperature state");
-            return;
-          }
-          
-          float temp = id(mqtt_temperature).state;
-          ESP_LOGD("chart", "Temperature: %.1f", temp);
-          
-          // Add to history (keep last 24 points = 24 hours)
-          id(temp_history).push_back(temp);
-          if (id(temp_history).size() > 24) {
-            id(temp_history).erase(id(temp_history).begin());
-          }
-          
-          ESP_LOGD("chart", "History size: %d", id(temp_history).size());
-          
-          // Skip drawing if no data
-          if (id(temp_history).size() == 0) {
-            ESP_LOGD("chart", "No history data");
-            return;
-          }
-          
-          // Get canvas
+          if (!id(chart_ready)) return;
           auto *canvas = id(chart_temperature);
-          if (!canvas) {
-            ESP_LOGE("chart", "Canvas is null!");
-            return;
-          }
-          
-          ESP_LOGD("chart", "Canvas found, calculating min/max");
-          
-          // Find min/max for scaling
+          if (!canvas) return;
+          size_t count = id(temp_history).size();
+          if (count == 0) return;
+          if (count > 24) count = 24;
+
           float min_val = id(temp_history)[0];
           float max_val = id(temp_history)[0];
-          for (size_t i = 0; i < id(temp_history).size() && i < 24; i++) {
+          for (size_t i = 0; i < count; i++) {
             float val = id(temp_history)[i];
             if (val < min_val) min_val = val;
             if (val > max_val) max_val = val;
           }
-          
           float range = max_val - min_val;
           if (range < 0.1f) {
             min_val -= 0.5f;
             max_val += 0.5f;
             range = max_val - min_val;
           }
-          
-          ESP_LOGD("chart", "Range: %.1f to %.1f", min_val, max_val);
-          
-          // Clear and redraw - simple approach
-          ESP_LOGD("chart", "Clearing canvas");
+
           lv_draw_rect_dsc_t rect_dsc;
           lv_draw_rect_dsc_init(&rect_dsc);
           rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
           lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
-          
-          ESP_LOGD("chart", "Drawing grid");
-          // Draw grid
+
           lv_draw_line_dsc_t grid_dsc;
           lv_draw_line_dsc_init(&grid_dsc);
           grid_dsc.color = lv_color_hex(0x2A2D32);
@@ -133,44 +109,27 @@ interval:
             lv_point_t pts[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
             lv_canvas_draw_line(canvas, pts, 2, &grid_dsc);
           }
-          
-          ESP_LOGD("chart", "Drawing chart");
-          size_t count = id(temp_history).size();
-          if (count > 24) count = 24;
-          
-          ESP_LOGD("chart", "Drawing %d points", count);
-          
-          if (count == 0) {
-            return;
-          }
-          
-          // Calculate all point positions first
+
           int x_coords[24];
           int y_coords[24];
-          
           for (size_t i = 0; i < count; i++) {
             int x = 10 + (int)(i * 228 / ((count > 1) ? (count - 1) : 1));
             if (x < 10) x = 10;
             if (x > 238) x = 238;
-            
             float val = id(temp_history)[i];
             float norm = (val - min_val) / range;
             int y = 150 - (int)(norm * 135.0f);
             if (y < 15) y = 15;
             if (y > 150) y = 150;
-            
             x_coords[i] = x;
             y_coords[i] = y;
           }
-          
-          // Draw lines connecting the points
+
           if (count > 1) {
-            ESP_LOGD("chart", "Drawing lines");
             lv_draw_line_dsc_t line_dsc;
             lv_draw_line_dsc_init(&line_dsc);
             line_dsc.color = lv_color_hex(0x27BAFD);
             line_dsc.width = 2;
-            
             for (size_t i = 0; i < count - 1; i++) {
               lv_point_t line_points[2] = {
                 {(lv_coord_t)x_coords[i], (lv_coord_t)y_coords[i]},
@@ -179,20 +138,25 @@ interval:
               lv_canvas_draw_line(canvas, line_points, 2, &line_dsc);
             }
           }
-          
-          // Draw dots on top of the lines
-          ESP_LOGD("chart", "Drawing dots");
+
           lv_draw_rect_dsc_t dot_dsc;
           lv_draw_rect_dsc_init(&dot_dsc);
           dot_dsc.bg_color = lv_color_hex(0x27BAFD);
-          
           for (size_t i = 0; i < count; i++) {
             lv_canvas_draw_rect(canvas, x_coords[i] - 2, y_coords[i] - 2, 4, 4, &dot_dsc);
           }
-          
-          ESP_LOGD("chart", "Invalidating canvas");
           lv_obj_invalidate(canvas);
-          ESP_LOGD("chart", "Chart update complete");
+
+  # Hourly: append current temperature, then redraw
+  - id: record_chart_sample
+    then:
+      - lambda: |-
+          if (!id(mqtt_temperature).has_state()) return;
+          id(temp_history).push_back(id(mqtt_temperature).state);
+          if (id(temp_history).size() > 24) {
+            id(temp_history).erase(id(temp_history).begin());
+          }
+      - script.execute: redraw_chart
 
 psram:
   mode: octal
@@ -217,7 +181,7 @@ text_sensor:
   - platform: mqtt_subscribe
     name: "Lys ved TV Status"
     id: mqtt_lys_ved_tv_status
-    topic: "homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/onoff"
+    topic: "homie/5/7ddae51d-43d1-4ee9-8ef8-3a1db503b42c/main/onoff"
     on_value:
       - lambda: |-
           bool is_on = (x == "true");
@@ -320,14 +284,17 @@ sensor:
     state_class: measurement
     on_value:
       - lambda: |-
-          // Update temperature label on every value change
-          float temp = x;
           char temp_str[16];
-          snprintf(temp_str, sizeof(temp_str), "%.1f°C", temp);
+          snprintf(temp_str, sizeof(temp_str), "%.1f°C", x);
           lv_label_set_text(id(lbl_temperature), temp_str);
-          
-          // Note: Chart updates are handled by the 1-minute interval
-          // This callback just updates the label
+          // Seed history with first reading so the chart shows something before the hourly sample
+          if (id(temp_history).empty()) {
+            id(temp_history).push_back(x);
+          } else {
+            // Keep the latest hourly bucket in sync with live temperature
+            id(temp_history).back() = x;
+          }
+          id(redraw_chart).execute();
 
 # --- I2C for GT911 + CH422G ---
 i2c:
@@ -404,7 +371,7 @@ lvgl:
 
   pages:
     - id: page_main
-      bg_color: 0x000000  # dashboard background
+      bg_color: 0x000000 # dashboard background
       widgets:
         # Left panel (30%)
         - obj:
@@ -643,7 +610,7 @@ lvgl:
                           - lambda: |-
                               bool checked = lv_obj_has_state(id(btn_lys_ved_tv), LV_STATE_CHECKED);
                               std::string payload = checked ? "true" : "false";
-                              id(mqtt_client).publish("homie/5/488fedd6-ef91-464e-afe3-d2b83f6e4250/main/onoff/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/7ddae51d-43d1-4ee9-8ef8-3a1db503b42c/main/onoff/set", payload, 0, false);
                               auto *icon = id(icon_lys_ved_tv);
                               lv_obj_set_style_text_color(icon, lv_color_hex(checked ? 0xFFFF00 : 0xFFFFFF), (lv_part_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_DEFAULT));
                         widgets:
@@ -1025,54 +992,34 @@ lvgl:
                   radius: 12
                   on_boot:
                     - lambda: |-
-                        // TEMPORARILY DISABLED - Testing if canvas causes crash
-                        // Initialize canvas buffer with debug logging
-                        ESP_LOGI("canvas", "=== Canvas boot initialization started ===");
-                        delay(500); // Longer delay to ensure LVGL is fully ready
-                        
                         auto *canvas = id(chart_temperature);
                         if (!canvas) {
-                          ESP_LOGE("canvas", "Canvas is null!");
+                          ESP_LOGE("canvas", "Chart canvas is null");
                           return;
                         }
-                        ESP_LOGI("canvas", "Canvas object found");
-                        
-                        ESP_LOGI("canvas", "Calculating buffer size");
-                        size_t buf_size = 248 * 165 * sizeof(lv_color_t);
-                        ESP_LOGI("canvas", "Buffer size: %d bytes", buf_size);
-                        
+
                         static lv_color_t *buf = nullptr;
-                        
+                        const size_t buf_size = 248 * 165 * sizeof(lv_color_t);
                         if (!buf) {
-                          ESP_LOGI("canvas", "Allocating canvas buffer");
-                          buf = (lv_color_t*)lv_mem_alloc(buf_size);
+                          // Prefer PSRAM so the ~80KB buffer does not eat internal heap
+                          buf = (lv_color_t *) heap_caps_malloc(
+                              buf_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
                           if (!buf) {
-                            ESP_LOGE("canvas", "Failed to allocate canvas buffer!");
+                            buf = (lv_color_t *) lv_mem_alloc(buf_size);
+                          }
+                          if (!buf) {
+                            ESP_LOGE("canvas", "Failed to allocate chart buffer (%u bytes)", (unsigned) buf_size);
                             return;
                           }
-                          ESP_LOGI("canvas", "Canvas buffer allocated successfully");
-                        } else {
-                          ESP_LOGI("canvas", "Canvas buffer already allocated");
                         }
-                        
-                        ESP_LOGI("canvas", "Setting canvas buffer");
+
                         lv_canvas_set_buffer(canvas, buf, 248, 165, LV_IMG_CF_TRUE_COLOR);
-                        ESP_LOGI("canvas", "Canvas buffer set");
-                        
-                        delay(100);
-                        
-                        ESP_LOGI("canvas", "Clearing canvas");
-                        // Clear canvas
+
                         lv_draw_rect_dsc_t rect_dsc;
                         lv_draw_rect_dsc_init(&rect_dsc);
                         rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
                         lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
-                        ESP_LOGI("canvas", "Canvas cleared");
-                        
-                        delay(100);
-                        
-                        ESP_LOGI("canvas", "Drawing grid lines");
-                        // Draw grid
+
                         lv_draw_line_dsc_t grid_dsc;
                         lv_draw_line_dsc_init(&grid_dsc);
                         grid_dsc.color = lv_color_hex(0x2A2D32);
@@ -1082,10 +1029,6 @@ lvgl:
                           lv_point_t pts[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
                           lv_canvas_draw_line(canvas, pts, 2, &grid_dsc);
                         }
-                        ESP_LOGI("canvas", "Grid lines drawn");
-                        
-                        delay(100);
-                        
-                        ESP_LOGI("canvas", "Invalidating canvas");
                         lv_obj_invalidate(canvas);
-                        ESP_LOGI("canvas", "=== Canvas initialization complete ===");
+                        id(chart_ready) = true;
+                        id(redraw_chart).execute();
