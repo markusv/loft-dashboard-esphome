@@ -20,11 +20,13 @@ esp32:
       CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1: y
 
 logger:
-  level: ERROR
+  level: INFO
   logs:
-    "*": ERROR
-    "lvgl": ERROR
-    "display": ERROR
+    chart: INFO
+    mqtt: INFO
+    wifi: INFO
+    lvgl: WARN
+    display: WARN
 ota:
   - platform: esphome
 api:
@@ -41,15 +43,24 @@ time:
     id: sntp_time
     timezone: Europe/Oslo
 
-# Temperature history: one sample per hour (last 24 hours)
+# Temperature history: fixed buffer (more reliable than std::vector globals)
+# One sample per hour, last 24 points (= 24h window).
 globals:
   - id: temp_history
-    type: std::vector<float>
+    type: float[24]
     restore_value: false
+  - id: temp_history_count
+    type: int
+    restore_value: false
+    initial_value: "0"
   - id: chart_ready
     type: bool
     restore_value: false
     initial_value: "false"
+  - id: last_chart_sample_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
 
 interval:
   - interval: 1s
@@ -64,26 +75,27 @@ interval:
             auto text = now.strftime("%H:%M");
             lv_label_set_text(label, text.c_str());
           }
-  # Append one hourly sample (24h window)
-  - interval: 1h
+  - interval: 1min
     then:
-      - script.execute: record_chart_sample
+      - script.execute: maybe_record_chart_sample
 
 script:
-  # Draw temp_history onto the canvas (no new samples)
   - id: redraw_chart
+    mode: queued
     then:
       - lambda: |-
           if (!id(chart_ready)) return;
           auto *canvas = id(chart_temperature);
           if (!canvas) return;
-          size_t count = id(temp_history).size();
-          if (count == 0) return;
+          int count = id(temp_history_count);
+          if (count <= 0) return;
           if (count > 24) count = 24;
+
+          ESP_LOGI("chart", "Redraw %d point(s)", count);
 
           float min_val = id(temp_history)[0];
           float max_val = id(temp_history)[0];
-          for (size_t i = 0; i < count; i++) {
+          for (int i = 0; i < count; i++) {
             float val = id(temp_history)[i];
             if (val < min_val) min_val = val;
             if (val > max_val) max_val = val;
@@ -97,6 +109,7 @@ script:
 
           lv_draw_rect_dsc_t rect_dsc;
           lv_draw_rect_dsc_init(&rect_dsc);
+          rect_dsc.bg_opa = LV_OPA_COVER;
           rect_dsc.bg_color = lv_color_hex(0x1a1a1c);
           lv_canvas_draw_rect(canvas, 0, 0, 248, 165, &rect_dsc);
 
@@ -104,6 +117,7 @@ script:
           lv_draw_line_dsc_init(&grid_dsc);
           grid_dsc.color = lv_color_hex(0x2A2D32);
           grid_dsc.width = 1;
+          grid_dsc.opa = LV_OPA_COVER;
           for (int i = 0; i <= 4; i++) {
             int y = 15 + (i * 135 / 4);
             lv_point_t pts[2] = {{10, (lv_coord_t)y}, {238, (lv_coord_t)y}};
@@ -112,10 +126,8 @@ script:
 
           int x_coords[24];
           int y_coords[24];
-          for (size_t i = 0; i < count; i++) {
-            int x = 10 + (int)(i * 228 / ((count > 1) ? (count - 1) : 1));
-            if (x < 10) x = 10;
-            if (x > 238) x = 238;
+          for (int i = 0; i < count; i++) {
+            int x = (count == 1) ? 124 : (10 + (i * 228 / (count - 1)));
             float val = id(temp_history)[i];
             float norm = (val - min_val) / range;
             int y = 150 - (int)(norm * 135.0f);
@@ -130,7 +142,8 @@ script:
             lv_draw_line_dsc_init(&line_dsc);
             line_dsc.color = lv_color_hex(0x27BAFD);
             line_dsc.width = 2;
-            for (size_t i = 0; i < count - 1; i++) {
+            line_dsc.opa = LV_OPA_COVER;
+            for (int i = 0; i < count - 1; i++) {
               lv_point_t line_points[2] = {
                 {(lv_coord_t)x_coords[i], (lv_coord_t)y_coords[i]},
                 {(lv_coord_t)x_coords[i + 1], (lv_coord_t)y_coords[i + 1]}
@@ -141,22 +154,44 @@ script:
 
           lv_draw_rect_dsc_t dot_dsc;
           lv_draw_rect_dsc_init(&dot_dsc);
+          dot_dsc.bg_opa = LV_OPA_COVER;
           dot_dsc.bg_color = lv_color_hex(0x27BAFD);
-          for (size_t i = 0; i < count; i++) {
-            lv_canvas_draw_rect(canvas, x_coords[i] - 2, y_coords[i] - 2, 4, 4, &dot_dsc);
+          for (int i = 0; i < count; i++) {
+            lv_canvas_draw_rect(canvas, x_coords[i] - 3, y_coords[i] - 3, 6, 6, &dot_dsc);
           }
           lv_obj_invalidate(canvas);
 
-  # Hourly: append current temperature, then redraw
-  - id: record_chart_sample
+  - id: maybe_record_chart_sample
+    mode: single
     then:
       - lambda: |-
-          if (!id(mqtt_temperature).has_state()) return;
-          id(temp_history).push_back(id(mqtt_temperature).state);
-          if (id(temp_history).size() > 24) {
-            id(temp_history).erase(id(temp_history).begin());
+          if (!id(mqtt_temperature).has_state()) {
+            ESP_LOGI("chart", "Skip sample: no temperature state yet");
+            return;
           }
-      - script.execute: redraw_chart
+          // One sample per hour for a 24h window
+          const uint32_t sample_every_ms = 3600000u;
+          const uint32_t now_ms = millis();
+          const uint32_t elapsed = now_ms - id(last_chart_sample_ms);
+          const bool due = (id(last_chart_sample_ms) == 0) || (elapsed >= sample_every_ms);
+          if (!due) {
+            return;
+          }
+
+          float temp = id(mqtt_temperature).state;
+          int count = id(temp_history_count);
+          if (count < 24) {
+            id(temp_history)[count] = temp;
+            id(temp_history_count) = count + 1;
+          } else {
+            for (int i = 0; i < 23; i++) {
+              id(temp_history)[i] = id(temp_history)[i + 1];
+            }
+            id(temp_history)[23] = temp;
+          }
+          id(last_chart_sample_ms) = now_ms;
+          ESP_LOGI("chart", "Sample %.1f°C — history=%d", temp, id(temp_history_count));
+          id(redraw_chart).execute();
 
 psram:
   mode: octal
@@ -287,12 +322,13 @@ sensor:
           char temp_str[16];
           snprintf(temp_str, sizeof(temp_str), "%.1f°C", x);
           lv_label_set_text(id(lbl_temperature), temp_str);
-          // Seed history with first reading so the chart shows something before the hourly sample
-          if (id(temp_history).empty()) {
-            id(temp_history).push_back(x);
+          if (id(temp_history_count) <= 0) {
+            id(temp_history)[0] = x;
+            id(temp_history_count) = 1;
+            id(last_chart_sample_ms) = millis();
+            ESP_LOGI("chart", "Seeded chart with %.1f°C", x);
           } else {
-            // Keep the latest hourly bucket in sync with live temperature
-            id(temp_history).back() = x;
+            id(temp_history)[id(temp_history_count) - 1] = x;
           }
           id(redraw_chart).execute();
 
