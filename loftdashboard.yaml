@@ -37,14 +37,24 @@ wifi:
   ap:
     ssid: "Waveshare-Setup"
     password: "changeme123"
+  on_connect:
+    - delay: 2s
+    - script.execute: fetch_temp_insights
+
+http_request:
+  id: http_client
+  timeout: 10s
+  # Plain HTTP to Homey dashboard on LAN — no TLS / cert bundle needed
+  verify_ssl: false
+
+json:
 
 time:
   - platform: sntp
     id: sntp_time
     timezone: Europe/Oslo
 
-# Temperature history: fixed buffer (more reliable than std::vector globals)
-# One sample per hour, last 24 points (= 24h window).
+# Temperature history: API seeds 24h, MQTT appends on change
 globals:
   - id: temp_history
     type: float[24]
@@ -57,10 +67,6 @@ globals:
     type: bool
     restore_value: false
     initial_value: "false"
-  - id: last_chart_sample_ms
-    type: uint32_t
-    restore_value: false
-    initial_value: "0"
 
 interval:
   - interval: 1s
@@ -75,9 +81,12 @@ interval:
             auto text = now.strftime("%H:%M");
             lv_label_set_text(label, text.c_str());
           }
-  - interval: 1min
+  - interval: 10min
     then:
-      - script.execute: maybe_record_chart_sample
+      - lambda: |-
+          ESP_LOGI("chart", "heartbeat count=%d has_temp=%s",
+                   id(temp_history_count),
+                   id(mqtt_temperature).has_state() ? "yes" : "no");
 
 script:
   - id: redraw_chart
@@ -161,37 +170,51 @@ script:
           }
           lv_obj_invalidate(canvas);
 
-  - id: maybe_record_chart_sample
+  - id: fetch_temp_insights
     mode: single
     then:
-      - lambda: |-
-          if (!id(mqtt_temperature).has_state()) {
-            ESP_LOGI("chart", "Skip sample: no temperature state yet");
-            return;
-          }
-          // One sample per hour for a 24h window
-          const uint32_t sample_every_ms = 3600000u;
-          const uint32_t now_ms = millis();
-          const uint32_t elapsed = now_ms - id(last_chart_sample_ms);
-          const bool due = (id(last_chart_sample_ms) == 0) || (elapsed >= sample_every_ms);
-          if (!due) {
-            return;
-          }
+      - http_request.get:
+          url: !secret homey_dashboard_temp_url
+          capture_response: true
+          max_response_buffer_size: 2048
+          on_response:
+            then:
+              - if:
+                  condition:
+                    lambda: return response->status_code == 200;
+                  then:
+                    - lambda: |-
+                        bool ok = json::parse_json(body, [](JsonObject root) -> bool {
+                          if (!root["points"].is<JsonArray>()) {
+                            ESP_LOGW("chart", "Insights JSON missing points[]");
+                            return false;
+                          }
+                          JsonArray arr = root["points"].as<JsonArray>();
+                          int i = 0;
+                          for (JsonVariant v : arr) {
+                            if (i >= 24) break;
+                            id(temp_history)[i++] = v.as<float>();
+                          }
+                          id(temp_history_count) = i;
 
-          float temp = id(mqtt_temperature).state;
-          int count = id(temp_history_count);
-          if (count < 24) {
-            id(temp_history)[count] = temp;
-            id(temp_history_count) = count + 1;
-          } else {
-            for (int i = 0; i < 23; i++) {
-              id(temp_history)[i] = id(temp_history)[i + 1];
-            }
-            id(temp_history)[23] = temp;
-          }
-          id(last_chart_sample_ms) = now_ms;
-          ESP_LOGI("chart", "Sample %.1f°C — history=%d", temp, id(temp_history_count));
-          id(redraw_chart).execute();
+                          if (!root["current"].isNull()) {
+                            float current = root["current"].as<float>();
+                            char temp_str[16];
+                            snprintf(temp_str, sizeof(temp_str), "%.1f°C", current);
+                            lv_label_set_text(id(lbl_temperature), temp_str);
+                          }
+
+                          ESP_LOGI("chart", "Loaded %d insight point(s) from dashboard", i);
+                          id(redraw_chart).execute();
+                          return true;
+                        });
+                        if (!ok) {
+                          ESP_LOGW("chart", "Failed to parse insights JSON");
+                        }
+                  else:
+                    - lambda: |-
+                        ESP_LOGW("chart", "Insights HTTP %d: %s",
+                                 response->status_code, body.c_str());
 
 psram:
   mode: octal
@@ -322,14 +345,32 @@ sensor:
           char temp_str[16];
           snprintf(temp_str, sizeof(temp_str), "%.1f°C", x);
           lv_label_set_text(id(lbl_temperature), temp_str);
-          if (id(temp_history_count) <= 0) {
+
+          int count = id(temp_history_count);
+          if (count <= 0) {
+            // API not loaded yet — seed so the chart is not empty
             id(temp_history)[0] = x;
             id(temp_history_count) = 1;
-            id(last_chart_sample_ms) = millis();
-            ESP_LOGI("chart", "Seeded chart with %.1f°C", x);
-          } else {
-            id(temp_history)[id(temp_history_count) - 1] = x;
+            ESP_LOGI("chart", "Seeded chart from MQTT %.1f°C", x);
+            id(redraw_chart).execute();
+            return;
           }
+
+          float last = id(temp_history)[count - 1];
+          if (fabsf(last - x) < 0.05f) {
+            return;  // unchanged
+          }
+
+          if (count < 24) {
+            id(temp_history)[count] = x;
+            id(temp_history_count) = count + 1;
+          } else {
+            for (int i = 0; i < 23; i++) {
+              id(temp_history)[i] = id(temp_history)[i + 1];
+            }
+            id(temp_history)[23] = x;
+          }
+          ESP_LOGI("chart", "MQTT append %.1f°C — history=%d", x, id(temp_history_count));
           id(redraw_chart).execute();
 
 # --- I2C for GT911 + CH422G ---
