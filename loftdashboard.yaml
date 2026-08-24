@@ -968,8 +968,8 @@ lvgl:
                         on_click:
                           - lambda: |-
                               std::string payload = "1";
-                              id(mqtt_client).publish("homie/5/395607c8-d444-41d4-90e9-3de7ee364ff4/main/windowcoverings_set/set", payload, 0, false);
-                              id(mqtt_client).publish("homie/5/a3c22c40-c730-4546-a797-16ba446e2bb5/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/f2518f3a-220d-4e23-ba75-6ce7334575d2/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/dc0ab534-c69e-4ffe-bae7-67854f9175d9/main/windowcoverings_set/set", payload, 0, false);
                         widgets:
                           - label:
                               text: "\uF062"
@@ -1009,8 +1009,8 @@ lvgl:
                         on_click:
                           - lambda: |-
                               std::string payload = "0";
-                              id(mqtt_client).publish("homie/5/395607c8-d444-41d4-90e9-3de7ee364ff4/main/windowcoverings_set/set", payload, 0, false);
-                              id(mqtt_client).publish("homie/5/a3c22c40-c730-4546-a797-16ba446e2bb5/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/f2518f3a-220d-4e23-ba75-6ce7334575d2/main/windowcoverings_set/set", payload, 0, false);
+                              id(mqtt_client).publish("homie/5/dc0ab534-c69e-4ffe-bae7-67854f9175d9/main/windowcoverings_set/set", payload, 0, false);
                         widgets:
                           - label:
                               text: "\uF063"
